@@ -9,7 +9,7 @@ as provided by sklearn, in the following way:
 - perform analysis
 """
 
-#%% Load packages
+# %% Load packages
 import datetime as dt
 import numpy as np
 import pickle
@@ -18,7 +18,7 @@ import xarray as xr
 from sklearn.model_selection import train_test_split
 from sklearn.neural_network import MLPRegressor
 
-#%% Create cyclones dataset (only needs one snapshot)
+# %% Create cyclones dataset (only needs one snapshot)
 def cyclone_matrix(tracks_path, dataset_path):    
     with open(tracks_path) as tracks_file:
         cyclones = {}       
@@ -68,7 +68,7 @@ def cyclone_matrix(tracks_path, dataset_path):
                 cyclones[n]['lon'][i] > lon_min):
                 if 'mask' not in cyclones[n]:
                     cyclones[n]['mask'] = np.zeros((lat_nels, lon_nels), dtype=int)
-                lat_index = np.round((cyclones[n]['lat'][i]-lat_min)/lat_step).astype(int) #si può evitare round usando solo astype(int) ?
+                lat_index = np.round((cyclones[n]['lat'][i]-lat_min)/lat_step).astype(int)
                 lon_index = np.round((cyclones[n]['lon'][i]-lon_min)/lon_step).astype(int)
                 cyclones[n]['mask'][lat_index, lon_index] += 1
 
@@ -104,12 +104,12 @@ def regr_preparation(tracks_path, dataset_path, model_path):
                 if temp_date >= times[0] and temp_date <= times[-1]:
                     cyclones.append([temp_date, (cycl['lat'][k], cycl['lon'][k])])
     del M0
-    # A questo punto abbiamo un vettore (cyclones) del tipo [[date, (lat,lon)]]
+    # now we have a vector (cyclones) of the form [[date, (lat,lon)]]
 
-    cyclones.sort() # here is where we lose the temporal structure of cyclones
+    cyclones.sort() # here we lose the temporal structure of cyclones
 
-    labels = []  # contiene le coordinate di tutti gli istanti di tempo
-    weights = []  # contiene le distribuzioni dei topic per tutti gli istanti di tempo
+    labels = []  # contains coordinates of cyclones at each time 
+    weights = []  # contiene le document-topic weights at each time
     i = 0
     for j in range(times.shape[0]):
         if (i < len(cyclones)) and (cyclones[i][0] != times[j]):
@@ -123,17 +123,12 @@ def regr_preparation(tracks_path, dataset_path, model_path):
     del cyclones
     
     weights = np.array(weights)
-    labels = np.array(labels)#.reshape(len(v),1)
+    labels = np.array(labels)
     index = np.unique(weights, return_index=True, axis=0)[1]
     weights = weights[index]
     labels = labels[index]
 
     return np.array(labels), np.array(weights)
-
-def crossMSE_loss(y_true, y_pred): # devono essere np.array per comodità
-    MSE = ops.square(y_true[:,1] - y_pred[:,1]) + ops.square((y_true[:,2] - y_pred[:,2])) # <- ops.sum
-    loss = y_true[:,0]*ops.log(y_pred[:,0])*MSE + (1-y_true[:,0])*ops.log(1-y_pred[:,0])  # <- ops.sum, ops.prod, ops.subtract
-    return ops.mean(loss)
 
 ##
 ###########################################################
@@ -147,10 +142,9 @@ model_path = 'LDA_updating/WIND-368184ndocs-020top-100th-20230715d-110832h'
 train_size = 0.80
 
 labels, weights = regr_preparation(tracks_path, dataset_path, model_path)
-#trainLabels, testLabels, trainWeights, testWeights = split_dataset(labels, weights, train_size=train_size)
 trainLabels, testLabels, trainWeights, testWeights = train_test_split(labels, weights, train_size=train_size, random_state=24)
 
 width = 100
-depth = 2
+depth = 3
 regr = MLPRegressor(hidden_layer_sizes=[width for i in range(depth)], random_state=1, max_iter=500).fit(trainWeights, trainLabels)
 regr.score(testWeights, testLabels) # R^2 score
